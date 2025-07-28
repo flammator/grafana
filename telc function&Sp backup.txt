@@ -1,0 +1,1206 @@
+/*
+SQLyog Ultimate v13.1.1 (64 bit)
+MySQL - 10.5.22-MariaDB : Database - tgui
+*********************************************************************
+*/
+
+/*!40101 SET NAMES utf8 */;
+
+/*!40101 SET SQL_MODE=''*/;
+
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+CREATE DATABASE /*!32312 IF NOT EXISTS*/`tgui` /*!40100 DEFAULT CHARACTER SET utf8 COLLATE utf8_persian_ci */;
+
+USE `tgui`;
+
+/* Function  structure for function  `BASE64_DECODE` */
+
+/*!50003 DROP FUNCTION IF EXISTS `BASE64_DECODE` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `BASE64_DECODE`(input BLOB) RETURNS blob
+    DETERMINISTIC
+    SQL SECURITY INVOKER
+BEGIN
+	DECLARE ret BLOB DEFAULT '';
+	DECLARE done TINYINT DEFAULT 0;
+
+	IF input IS NULL THEN
+		RETURN NULL;
+	END IF;
+
+each_block:
+	WHILE NOT done DO BEGIN
+		DECLARE accum_value BIGINT UNSIGNED DEFAULT 0;
+		DECLARE in_count TINYINT DEFAULT 0;
+		DECLARE out_count TINYINT DEFAULT 3;
+
+each_input_char:
+		WHILE in_count < 4 DO BEGIN
+			DECLARE first_char CHAR(1);
+	
+			IF LENGTH(input) = 0 THEN
+				RETURN ret;
+			END IF;
+	
+			SET first_char = SUBSTRING(input,1,1);
+			SET input = SUBSTRING(input,2);
+	
+			BEGIN
+				DECLARE tempval TINYINT UNSIGNED;
+				DECLARE error TINYINT DEFAULT 0;
+				DECLARE base64_getval CURSOR FOR SELECT val FROM base64_data WHERE c = first_char;
+				DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET error = 1;
+	
+				OPEN base64_getval;
+				FETCH base64_getval INTO tempval;
+				CLOSE base64_getval;
+
+				IF error THEN
+					ITERATE each_input_char;
+				END IF;
+
+				SET accum_value = (accum_value << 6) + tempval;
+			END;
+
+			SET in_count = in_count + 1;
+
+			IF first_char = '=' THEN
+				SET done = 1;
+				SET out_count = out_count - 1;
+			END IF;
+		END; END WHILE;
+
+		-- We've now accumulated 24 bits; deaccumulate into bytes
+
+		-- We have to work from the left, so use the third byte position and shift left
+		WHILE out_count > 0 DO BEGIN
+			SET ret = CONCAT(ret,CHAR((accum_value & 0xff0000) >> 16));
+			SET out_count = out_count - 1;
+			SET accum_value = (accum_value << 8) & 0xffffff;
+		END; END WHILE;
+	
+	END; END WHILE;
+
+	RETURN ret;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `BASE64_ENCODE` */
+
+/*!50003 DROP FUNCTION IF EXISTS `BASE64_ENCODE` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`YOUR DATABASE`@`%` FUNCTION `BASE64_ENCODE`(input BLOB) RETURNS blob
+    DETERMINISTIC
+    SQL SECURITY INVOKER
+BEGIN
+    DECLARE ret BLOB DEFAULT '';
+    DECLARE done TINYINT DEFAULT 0;
+    IF input IS NULL THEN
+        RETURN NULL;
+    END IF;
+each_block:
+    WHILE NOT done DO BEGIN
+        DECLARE accum_value BIGINT UNSIGNED DEFAULT 0;
+        DECLARE in_count TINYINT DEFAULT 0;
+        DECLARE out_count TINYINT;
+each_input_char:
+        WHILE in_count < 3 DO BEGIN
+            DECLARE first_char BLOB(1);
+
+            IF LENGTH(input) = 0 THEN
+                SET done = 1;
+                SET accum_value = accum_value << (8 * (3 - in_count));
+                LEAVE each_input_char;
+            END IF;
+
+            SET first_char = SUBSTRING(input,1,1);
+            SET input = SUBSTRING(input,2);
+
+            SET accum_value = (accum_value << 8) + ASCII(first_char);
+            SET in_count = in_count + 1;
+        END; END WHILE;
+
+        -- We've now accumulated 24 bits; deaccumulate into base64 characters
+        -- We have to work from the left, so use the third byte position and shift left
+        CASE
+            WHEN in_count = 3 THEN SET out_count = 4;
+            WHEN in_count = 2 THEN SET out_count = 3;
+            WHEN in_count = 1 THEN SET out_count = 2;
+            ELSE RETURN ret;
+        END CASE;
+
+        WHILE out_count > 0 DO BEGIN
+            BEGIN
+                DECLARE out_char CHAR(1);
+                DECLARE base64_getval CURSOR FOR SELECT c FROM core_base64_data WHERE val = (accum_value >> 18);
+                OPEN base64_getval;
+                FETCH base64_getval INTO out_char;
+                CLOSE base64_getval;
+                SET ret = CONCAT(ret,out_char);
+                SET out_count = out_count - 1;
+                SET accum_value = accum_value << 6 & 0xffffff;
+            END;
+        END; END WHILE;
+        CASE
+            WHEN in_count = 2 THEN SET ret = CONCAT(ret,'=');
+            WHEN in_count = 1 THEN SET ret = CONCAT(ret,'==');
+            ELSE BEGIN END;
+        END CASE;
+
+    END; END WHILE;
+    RETURN ret;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `dates_step` */
+
+/*!50003 DROP FUNCTION IF EXISTS `dates_step` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `dates_step`(start DATE, time DATETIME, step int(10)) RETURNS int(11)
+    DETERMINISTIC
+BEGIN 
+RETURN CEIL((((TO_SECONDS(time) - TO_SECONDS(start))+0.000001)/60)/step);
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `date_step` */
+
+/*!50003 DROP FUNCTION IF EXISTS `date_step` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `date_step`(time TIME, step int(10)) RETURNS int(11)
+    DETERMINISTIC
+BEGIN 
+RETURN CEIL(((TIME_TO_SEC(time)+0.000001)/60)/step);
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_abandoned_calls` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_abandoned_calls` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_abandoned_calls`(i_queue VARCHAR(50) ) RETURNS int(4)
+BEGIN
+
+SELECT IFNULL((SELECT 
+      COUNT(CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id)=2 THEN 1 ELSE NULL END ) 
+      
+  FROM recordings r
+ WHERE r.date_created_ts >= DATE(NOW())
+   AND r.date_created_ts < NOW()
+  AND  ( queue_id = f_queue_get_by_extnumber(i_queue))
+   AND (r.to_agent IS NULL) /*SELECT COUNT(*) FROM tgui.recordings t WHERE t.`date_created_ts` >= DATE(NOW()) 
+ AND ($queue IN ( queue_id ) ) AND t.to_profile_id IS  NULL*/),0) AS COUNT  INTO @w3 ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_answerd_rate` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_answerd_rate` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_answerd_rate`(i_queue VARCHAR(50) ) RETURNS float
+BEGIN
+DECLARE total INT DEFAULT 1;
+DECLARE answered INT DEFAULT 0;
+
+SELECT
+      COUNT(*)
+      INTO answered
+    FROM
+      tgui.recordings t
+    WHERE t.`date_created_ts` >= DATE(NOW())
+      -- AND t.`call_status` = 'ANSWER'
+      AND t.to_profile_id IS NOT NULL
+     -- AND t.`call_direction` = 'IN'
+      AND ( queue_id = f_queue_get_by_extnumber(i_queue));
+
+SELECT
+      COUNT(*)
+    INTO  total 
+    FROM
+      tgui.recordings t
+    WHERE t.`date_created_ts` >= DATE(NOW())
+      -- AND t.`call_direction` = 'IN'
+      AND ( queue_id = f_queue_get_by_extnumber(i_queue));
+      
+      RETURN IFNULL(answered/total*100,0);
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_average_talk_time` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_average_talk_time` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_average_talk_time`(i_queue VARCHAR(50) ) RETURNS time
+BEGIN
+ 
+SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(duration))),0) INTO @w3 FROM recordings WHERE date_created_ts >= CURDATE() AND ( queue_id = f_queue_get_by_extnumber(i_queue)) ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_average_wait_time` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_average_wait_time` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_average_wait_time`(i_queue VARCHAR(50) ) RETURNS time
+BEGIN
+ 
+SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(hold_time))),0) INTO @w3 FROM recordings WHERE date_created_ts >= CURDATE() AND ( queue_id = f_queue_get_by_extnumber(i_queue)) AND to_profile_id IS NOT NULL ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_calls_handled` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_calls_handled` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_calls_handled`(i_queue VARCHAR(50) ) RETURNS int(4)
+BEGIN
+ 
+SELECT COUNT(*) INTO @w3  FROM recordings WHERE date_created_ts >= CURDATE() AND ( queue_id = f_queue_get_by_extnumber(i_queue)) AND call_status = 'answer' AND to_profile_id IS NOT NULl ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_calls_in_queue` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_calls_in_queue` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_calls_in_queue`(i_queue VARCHAR(50) ) RETURNS int(6)
+BEGIN
+ 
+	SELECT Calls into @w21 FROM asterisk_queues WHERE  QueueId = f_queue_get_by_extnumber(i_queue);
+	RETURN @w21 ;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_login_agents` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_login_agents` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_login_agents`(i_queue VARCHAR(50) ) RETURNS int(4)
+BEGIN
+ 
+SELECT COUNT(*) into @w3 FROM agents_queues WHERE ( queue_id = f_queue_get_by_extnumber(i_queue)) AND login = '1' ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_longest_wait_time` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_longest_wait_time` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_longest_wait_time`(i_queue VARCHAR(50) ) RETURNS time
+BEGIN
+ 
+SELECT IFNULL(SEC_TO_TIME(ROUND(MAX(hold_time))),0) AS ringtime into @w3 FROM recordings WHERE date_created_ts >= CURDATE() AND ( queue_id = f_queue_get_by_extnumber(i_queue))
+ AND to_profile_id IS NOT NULL ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_missed_call_dashbord` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_missed_call_dashbord` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_missed_call_dashbord`(i_queue VARCHAR(50) ) RETURNS int(4)
+BEGIN
+ 
+SELECT 
+     count( CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id)=3 THEN 1 ELSE NULL END ) INTO @w3
+  FROM recordings r
+ WHERE r.date_created_ts >= DATE(NOW())
+   AND r.date_created_ts < NOW()
+  AND ( queue_id = f_queue_get_by_extnumber(i_queue)) ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_miss_call` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_miss_call` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `f_miss_call`(i_start DATETIME , i_end  DATETIME , i_caller_id  VARCHAR(50)) RETURNS int(2)
+BEGIN
+
+DECLARE id BIGINT(20);
+DECLARE caller VARCHAR(50);
+IF SUBSTR(i_caller_id , 1,1) =0 THEN  
+SET caller = CONCAT('%' , SUBSTR(i_caller_id,2) , '%');
+ELSE 
+SET caller = CONCAT('%' , i_caller_id , '%');
+END IF ;
+SELECT al.id INTO id FROM agent_logs al WHERE al.time >= i_start AND al.time < i_end AND al.action_type = 'miss'
+AND al.caller_id LIKE caller LIMIT 1 ;
+IF id IS NOT NULL THEN 
+ RETURN 3;
+ELSE 
+RETURN 2;
+END IF;
+    
+
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_queue_get_by_extnumber` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_queue_get_by_extnumber` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_queue_get_by_extnumber`(i_queue VARCHAR(50) ) RETURNS int(6)
+BEGIN 
+ SELECT  id  into @w3 FROM queues WHERE ext_number = i_queue;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_talking_agents` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_talking_agents` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_talking_agents`(i_queue VARCHAR(50) ) RETURNS int(4)
+BEGIN
+ 
+SELECT COUNT(*) into @w3  FROM online_calls WHERE ( queue_id = f_queue_get_by_extnumber(i_queue)) AND STATUS ='Talking' ;
+RETURN @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `f_total_calls` */
+
+/*!50003 DROP FUNCTION IF EXISTS `f_total_calls` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` FUNCTION `f_total_calls`(i_queue varchar(50) ) RETURNS int(4)
+BEGIN
+
+select count(*) into @w3  from recordings where date_created_ts >= curdate()  and ( queue_id = f_queue_get_by_extnumber(i_queue)) ; 
+return @w3 ;
+    END */$$
+DELIMITER ;
+
+/* Function  structure for function  `gdate` */
+
+/*!50003 DROP FUNCTION IF EXISTS `gdate` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `gdate`(`jy` smallint, `jm` smallint, `jd` smallint) RETURNS datetime
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	DECLARE
+		i, j, e, k, mo,
+		gy, gm, gd,
+		g_day_no, j_day_no, bkab, jmm, mday, g_day_mo, bkab1, j1
+	INT DEFAULT 0; 
+	DECLARE resout char(100);
+	DECLARE fdate datetime;
+
+
+  SET bkab = __mymod(jy,33);
+
+  IF (bkab = 1 or bkab= 5 or bkab = 9 or bkab = 13 or bkab = 17 or bkab = 22 or bkab = 26 or bkab = 30) THEN
+    SET j=1;
+  end IF;
+
+  SET bkab1 = __mymod(jy+1,33);
+
+  IF (bkab1 = 1 or bkab1= 5 or bkab1 = 9 or bkab1 = 13 or bkab1 = 17 or bkab1 = 22 or bkab1 = 26 or bkab1 = 30) THEN
+    SET j1=1;
+  end IF;
+
+	CASE jm
+		WHEN 1 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 2 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 3 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 4 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 5 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 6 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 7 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 8 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 9 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 10 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 11 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 12 THEN IF jd > _jdmarray2(jm)+j or jd <= 0 THEN SET e=1; end IF;
+	END CASE;
+  IF jm > 12 or jm <= 0 THEN SET e=1; end IF;
+  IF jy <= 0 THEN SET e=1; end IF;
+
+  IF e>0 THEN
+    RETURN 0;
+  end IF;
+
+  IF (jm>=11) or (jm=10 and jd>=11 and j=0) or (jm=10 and jd>11 and j=1) THEN
+    SET i=1;
+  end IF;
+  SET gy = jy + 621 + i;
+
+  IF (__mymod(gy,4)=0) THEN
+    SET k=1;
+  end IF;
+
+	IF (__mymod(gy,100)=0) and (__mymod(gy,400)<>0) THEN
+		SET k=0;
+	END IF;
+
+  SET jmm=jm-1;
+
+  WHILE (jmm > 0) do
+    SET mday=mday+_jdmarray2(jmm);
+    SET jmm=jmm-1;
+  end WHILE;
+
+  SET j_day_no=(jy-1)*365+(__mydiv(jy,4))+mday+jd;
+  SET g_day_no=j_day_no+226899;
+
+
+  SET g_day_no=g_day_no-(__mydiv(gy-1,4));
+  SET g_day_mo=__mymod(g_day_no,365);
+
+	IF (k=1 and j=1) THEN
+		IF (g_day_mo=0) THEN
+			RETURN CONCAT_WS('-',gy,'12','30');
+		END IF;
+		IF (g_day_mo=1) THEN
+			RETURN CONCAT_WS('-',gy,'12','31');
+		END IF;
+	END IF;
+
+	IF (g_day_mo=0) THEN
+		RETURN CONCAT_WS('-',gy,'12','31');
+	END IF;
+
+
+  SET mo=0;
+  SET gm=gm+1;
+  while g_day_mo>_gdmarray2(mo,k) do
+		SET g_day_mo=g_day_mo-_gdmarray2(mo,k);
+    SET mo=mo+1;
+    SET gm=gm+1;
+  end WHILE;
+  SET gd=g_day_mo;
+
+  RETURN CONCAT_WS('-',gy,gm,gd);
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `gdatestr` */
+
+/*!50003 DROP FUNCTION IF EXISTS `gdatestr` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `gdatestr`(`jdat` char(10)) RETURNS datetime
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	DECLARE
+		i, j, e, k, mo,
+		gy, gm, gd,
+		g_day_no, j_day_no, bkab, jmm, mday, g_day_mo, jd, jy, jm,bkab1,j1
+	INT DEFAULT 0; 
+	DECLARE resout char(100);
+	DECLARE jdd, jyd, jmd, jt varchar(100);
+	DECLARE fdate datetime;
+
+	SET jdd = SUBSTRING_INDEX(jdat, '/', -1);
+	SET jt = SUBSTRING_INDEX(jdat, '/', 2);
+	SET jyd = SUBSTRING_INDEX(jt, '/', 1);
+	SET jmd = SUBSTRING_INDEX(jt, '/', -1);
+	SET jd = CAST(jdd as SIGNED);
+	SET jy = CAST(jyd as SIGNED);
+	SET jm = CAST(jmd as SIGNED);
+
+
+	 SET bkab = __mymod(jy,33);
+
+  IF (bkab = 1 or bkab= 5 or bkab = 9 or bkab = 13 or bkab = 17 or bkab = 22 or bkab = 26 or bkab = 30) THEN
+    SET j=1;
+  end IF;
+
+  SET bkab1 = __mymod(jy+1,33);
+
+  IF (bkab1 = 1 or bkab1= 5 or bkab1 = 9 or bkab1 = 13 or bkab1 = 17 or bkab1 = 22 or bkab1 = 26 or bkab1 = 30) THEN
+    SET j1=1;
+  end IF;
+
+	CASE jm
+		WHEN 1 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 2 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 3 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 4 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 5 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 6 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 7 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 8 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 9 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 10 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 11 THEN IF jd > _jdmarray2(jm) or jd <= 0 THEN SET e=1; end IF;
+		WHEN 12 THEN IF jd > _jdmarray2(jm)+j or jd <= 0 THEN SET e=1; end IF;
+	END CASE;
+  IF jm > 12 or jm <= 0 THEN SET e=1; end IF;
+  IF jy <= 0 THEN SET e=1; end IF;
+
+  IF e>0 THEN
+    RETURN 0;
+  end IF;
+
+  IF (jm>=11) or (jm=10 and jd>=11 and j=0) or (jm=10 and jd>11 and j=1) THEN
+    SET i=1;
+  end IF;
+  SET gy = jy + 621 + i;
+
+  IF (__mymod(gy,4)=0) THEN
+    SET k=1;
+  end IF;
+
+	IF (__mymod(gy,100)=0) and (__mymod(gy,400)<>0) THEN
+		SET k=0;
+	END IF;
+
+  SET jmm=jm-1;
+
+  WHILE (jmm > 0) do
+    SET mday=mday+_jdmarray2(jmm);
+    SET jmm=jmm-1;
+  end WHILE;
+
+  SET j_day_no=(jy-1)*365+(__mydiv(jy,4))+mday+jd;
+  SET g_day_no=j_day_no+226899;
+
+
+  SET g_day_no=g_day_no-(__mydiv(gy-1,4));
+  SET g_day_mo=__mymod(g_day_no,365);
+
+	IF (k=1 and j=1) THEN
+		IF (g_day_mo=0) THEN
+			RETURN CONCAT_WS('-',gy,'12','30');
+		END IF;
+		IF (g_day_mo=1) THEN
+			RETURN CONCAT_WS('-',gy,'12','31');
+		END IF;
+	END IF;
+
+	IF (g_day_mo=0) THEN
+		RETURN CONCAT_WS('-',gy,'12','31');
+	END IF;
+
+
+  SET mo=0;
+  SET gm=gm+1;
+  while g_day_mo>_gdmarray2(mo,k) do
+		SET g_day_mo=g_day_mo-_gdmarray2(mo,k);
+    SET mo=mo+1;
+    SET gm=gm+1;
+  end WHILE;
+  SET gd=g_day_mo;
+
+  RETURN CONCAT_WS('-',gy,gm,gd);
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `pdate` */
+
+/*!50003 DROP FUNCTION IF EXISTS `pdate` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `pdate`(`gdate` datetime) RETURNS char(100) CHARSET utf8 COLLATE utf8_general_ci
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	DECLARE
+		i,
+		gy, gm, gd,
+		g_day_no, j_day_no, j_np,
+		jy, jm, jd INT DEFAULT 0; 
+	DECLARE resout char(100);
+	DECLARE ttime CHAR(20);
+
+	SET gy = YEAR(gdate) - 1600;
+	SET gm = MONTH(gdate) - 1;
+	SET gd = DAY(gdate) - 1;
+	SET ttime = TIME(gdate);
+	SET g_day_no = ((365 * gy) + __mydiv(gy + 3, 4) - __mydiv(gy + 99, 100) + __mydiv (gy + 399, 400));
+	SET i = 0;
+
+	WHILE (i < gm) do
+		SET g_day_no = g_day_no + _gdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	IF gm > 1 and ((gy % 4 = 0 and gy % 100 <> 0)) or gy % 400 = 0 THEN
+		SET g_day_no =	g_day_no + 1;
+	END IF;
+
+	SET g_day_no = g_day_no + gd;
+	SET j_day_no = g_day_no - 79;
+	SET j_np = j_day_no DIV 12053;
+	SET j_day_no = j_day_no % 12053;
+	SET jy = 979 + 33 * j_np + 4 * __mydiv(j_day_no, 1461);
+	SET j_day_no = j_day_no % 1461;
+
+	IF j_day_no >= 366 then
+		SET jy = jy + __mydiv(j_day_no - 1, 365);
+		SET j_day_no = (j_day_no - 1) % 365;
+	END IF;
+
+	SET i = 0;
+
+	WHILE (i < 11 and j_day_no >= _jdmarray(i)) do
+		SET j_day_no = j_day_no - _jdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	SET jm = i + 1;
+	SET jd = j_day_no + 1;
+	SET resout = CONCAT_WS ('-', jy, jm, jd);
+
+	IF (ttime <> '00:00:00') then
+		SET resout = CONCAT_WS(' ', resout, ttime);
+	END IF;
+
+	RETURN resout;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `pday` */
+
+/*!50003 DROP FUNCTION IF EXISTS `pday` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `pday`(`gdate` datetime) RETURNS char(100) CHARSET utf8 COLLATE utf8_general_ci
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	DECLARE
+		i,
+		gy, gm, gd,
+		g_day_no, j_day_no, j_np,
+		jy, jm, jd INT DEFAULT 0; 
+	DECLARE resout char(100);
+	DECLARE ttime CHAR(20);
+
+	SET gy = YEAR(gdate) - 1600;
+	SET gm = MONTH(gdate) - 1;
+	SET gd = DAY(gdate) - 1;
+	SET ttime = TIME(gdate);
+	SET g_day_no = ((365 * gy) + __mydiv(gy + 3, 4) - __mydiv(gy + 99 , 100) + __mydiv(gy + 399, 400));
+	SET i = 0;
+
+	WHILE (i < gm) do
+		SET g_day_no = g_day_no + _gdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	IF gm > 1 and ((gy % 4 = 0 and gy % 100 <> 0)) or gy % 400 = 0 THEN
+		SET g_day_no = g_day_no + 1;
+	END IF;
+
+	SET g_day_no = g_day_no + gd;
+	SET j_day_no = g_day_no - 79;
+	SET j_np = j_day_no DIV 12053;
+	SET j_day_no = j_day_no % 12053;
+	SET jy = 979 + 33 * j_np + 4 * __mydiv(j_day_no, 1461);
+	SET j_day_no = j_day_no % 1461;
+
+	IF j_day_no >= 366 then
+		SET jy = jy + __mydiv(j_day_no - 1, 365);
+		SET j_day_no = (j_day_no-1) % 365;
+	END IF;
+
+	SET i = 0;
+
+	WHILE (i < 11 and j_day_no >= _jdmarray(i)) do
+		SET j_day_no = j_day_no - _jdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	SET jm = i + 1;
+	SET jd = j_day_no + 1;
+	RETURN jd;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `PMONTH` */
+
+/*!50003 DROP FUNCTION IF EXISTS `PMONTH` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `PMONTH`(`gdate` datetime) RETURNS char(100) CHARSET utf8 COLLATE utf8_general_ci
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	DECLARE
+		i,
+		gy, gm, gd,
+		g_day_no, j_day_no, j_np,
+		jy, jm, jd INT DEFAULT 0; 
+	DECLARE resout char(100);
+	DECLARE ttime CHAR(20);
+
+	SET gy = YEAR(gdate) - 1600;
+	SET gm = MONTH(gdate) - 1;
+	SET gd = DAY(gdate) - 1;
+	SET ttime = TIME(gdate);
+	SET g_day_no = ((365 * gy) + __mydiv(gy + 3, 4) - __mydiv(gy + 99, 100) + __mydiv(gy + 399, 400));
+	SET i = 0;
+
+	WHILE (i < gm) do
+		SET g_day_no = g_day_no + _gdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	IF gm > 1 and ((gy % 4 = 0 and gy % 100 <> 0)) or gy % 400 = 0 THEN
+		SET g_day_no = g_day_no + 1;
+	END IF;
+
+	SET g_day_no = g_day_no + gd;
+	SET j_day_no = g_day_no - 79;
+	SET j_np = j_day_no DIV 12053;
+	set j_day_no = j_day_no % 12053;
+	SET jy = 979 + 33 * j_np + 4 * __mydiv(j_day_no, 1461);
+	SET j_day_no = j_day_no % 1461;
+
+	IF j_day_no >= 366 then
+		SET jy = jy + __mydiv(j_day_no - 1, 365);
+		SET j_day_no =(j_day_no - 1) % 365;
+	END IF;
+
+	SET i = 0;
+
+	WHILE (i < 11 and j_day_no >= _jdmarray(i)) do
+		SET j_day_no = j_day_no - _jdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	SET jm = i + 1;
+	SET jd = j_day_no + 1;
+	RETURN jm;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `pmonthname` */
+
+/*!50003 DROP FUNCTION IF EXISTS `pmonthname` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `pmonthname`(`gdate` datetime) RETURNS varchar(100) CHARSET utf8 COLLATE utf8_general_ci
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	CASE PMONTH(gdate)
+		WHEN 1 THEN RETURN 'فروردین';
+		WHEN 2 THEN RETURN 'اردیبهشت';
+		WHEN 3 THEN	RETURN 'خرداد';
+		WHEN 4 THEN	RETURN 'تیر';
+		WHEN 5 THEN	RETURN 'مرداد';
+		WHEN 6 THEN	RETURN 'شهریور';
+		WHEN 7 THEN	RETURN 'مهر';
+		WHEN 8 THEN	RETURN 'آبان';
+		WHEN 9 THEN	RETURN 'آذر';
+		WHEN 10 THEN RETURN	'دی';
+		WHEN 11 THEN RETURN	'بهمن';
+		WHEN 12 THEN RETURN	'اسفند';
+	END CASE;
+
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `pyear` */
+
+/*!50003 DROP FUNCTION IF EXISTS `pyear` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `pyear`(`gdate` datetime) RETURNS char(100) CHARSET utf8 COLLATE utf8_general_ci
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	DECLARE
+		i,
+		gy, gm, gd,
+		g_day_no, j_day_no, j_np,
+		jy, jm, jd INT DEFAULT 0; 
+	DECLARE resout char(100);
+	DECLARE ttime CHAR(20);
+
+	SET gy = YEAR(gdate) - 1600;
+	SET gm = MONTH(gdate) - 1;
+	SET gd = DAY(gdate) - 1;
+	SET ttime = TIME(gdate);
+	SET g_day_no = ((365 * gy) + __mydiv(gy + 3, 4) - __mydiv(gy + 99, 100) + __mydiv(gy + 399, 400));
+	SET i = 0;
+
+	WHILE (i < gm) do
+		SET g_day_no = g_day_no + _gdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	IF gm > 1 and ((gy % 4 = 0 and gy % 100 <> 0)) or gy % 400 = 0 THEN
+		SET g_day_no =	g_day_no + 1;
+	END IF;
+
+	SET g_day_no = g_day_no + gd;
+	SET j_day_no = g_day_no - 79;
+	SET j_np = j_day_no DIV 12053;
+	set j_day_no = j_day_no % 12053;
+	SET jy = 979 + 33 * j_np + 4 * __mydiv(j_day_no, 1461);
+	SET j_day_no = j_day_no % 1461;
+
+	IF j_day_no >= 366 then
+		SET jy = jy + __mydiv(j_day_no - 1, 365);
+		SET j_day_no = (j_day_no - 1) % 365;
+	END IF;
+
+	SET i = 0;
+
+	WHILE (i < 11 and j_day_no >= _jdmarray(i)) do
+		SET j_day_no = j_day_no - _jdmarray(i);
+		SET i = i + 1;
+	END WHILE;
+
+	SET jm = i + 1;
+	SET jd = j_day_no + 1;
+	RETURN jy;
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `_gdmarray` */
+
+/*!50003 DROP FUNCTION IF EXISTS `_gdmarray` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `_gdmarray`(`m` smallint) RETURNS smallint(2)
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	CASE m
+		WHEN 0 THEN RETURN 31;
+		WHEN 1 THEN RETURN 28;
+		WHEN 2 THEN RETURN 31;
+		WHEN 3 THEN RETURN 30;
+		WHEN 4 THEN RETURN 31;
+		WHEN 5 THEN RETURN 30;
+		WHEN 6 THEN RETURN 31;
+		WHEN 7 THEN RETURN 31;
+		WHEN 8 THEN RETURN 30;
+		WHEN 9 THEN RETURN 31;
+		WHEN 10 THEN RETURN 30;
+		WHEN 11 THEN RETURN 31;
+	END CASE;
+
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `_gdmarray2` */
+
+/*!50003 DROP FUNCTION IF EXISTS `_gdmarray2` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `_gdmarray2`(`m` smallint, `k` SMALLINT) RETURNS smallint(2)
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	CASE m
+		WHEN 0 THEN RETURN 31;
+		WHEN 1 THEN RETURN 28+k;
+		WHEN 2 THEN RETURN 31;
+		WHEN 3 THEN RETURN 30;
+		WHEN 4 THEN RETURN 31;
+		WHEN 5 THEN RETURN 30;
+		WHEN 6 THEN RETURN 31;
+		WHEN 7 THEN RETURN 31;
+		WHEN 8 THEN RETURN 30;
+		WHEN 9 THEN RETURN 31;
+		WHEN 10 THEN RETURN 30;
+		WHEN 11 THEN RETURN 31;
+	END CASE;
+
+
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `_jdmarray` */
+
+/*!50003 DROP FUNCTION IF EXISTS `_jdmarray` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `_jdmarray`(`m` smallint) RETURNS smallint(2)
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	CASE m
+		WHEN 0 THEN RETURN 31;
+		WHEN 1 THEN RETURN 31;
+		WHEN 2 THEN RETURN 31;
+		WHEN 3 THEN RETURN 31;
+		WHEN 4 THEN RETURN 31;
+		WHEN 5 THEN RETURN 31;
+		WHEN 6 THEN RETURN 30;
+		WHEN 7 THEN RETURN 30;
+		WHEN 8 THEN RETURN 30;
+		WHEN 9 THEN RETURN 30;
+		WHEN 10 THEN RETURN 30;
+		WHEN 11 THEN RETURN 29;
+	END CASE;
+
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `_jdmarray2` */
+
+/*!50003 DROP FUNCTION IF EXISTS `_jdmarray2` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `_jdmarray2`(`m` smallint) RETURNS smallint(2)
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	CASE m
+		WHEN 1 THEN RETURN 31;
+		WHEN 2 THEN RETURN 31;
+		WHEN 3 THEN RETURN 31;
+		WHEN 4 THEN RETURN 31;
+		WHEN 5 THEN RETURN 31;
+		WHEN 6 THEN RETURN 31;
+		WHEN 7 THEN RETURN 30;
+		WHEN 8 THEN RETURN 30;
+		WHEN 9 THEN RETURN 30;
+		WHEN 10 THEN RETURN 30;
+		WHEN 11 THEN RETURN 30;
+		WHEN 12 THEN RETURN 29;
+	END CASE;
+
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `__mydiv` */
+
+/*!50003 DROP FUNCTION IF EXISTS `__mydiv` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `__mydiv`(`a` int, `b` int) RETURNS bigint(20)
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	return FLOOR(a / b);
+END */$$
+DELIMITER ;
+
+/* Function  structure for function  `__mymod` */
+
+/*!50003 DROP FUNCTION IF EXISTS `__mymod` */;
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` FUNCTION `__mymod`(`a` int, `b` int) RETURNS bigint(20)
+    DETERMINISTIC
+BEGIN
+
+
+
+
+	return (a - b * FLOOR(a / b));
+END */$$
+DELIMITER ;
+
+/* Procedure structure for procedure `p_active_agent` */
+
+/*!50003 DROP PROCEDURE IF EXISTS  `p_active_agent` */;
+
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` PROCEDURE `p_active_agent`(v_queue_id BIGINT)
+BEGIN
+/*SELECT
+   COUNT(*) INTO @w1 
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.to_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'IN'
+    AND t.`status` = 'Talking'
+    AND to_profile_id IS NOT NULL
+     AND  t.queue_id = v_queue_id;
+
+    SELECT
+   COUNT(*) INTO @w2
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.from_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'OUT'
+    AND t.`status` = 'Talking'
+    AND t.from_profile_id IS NOT NULL
+    AND t.from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  aq.queue_id = v_queue_id));*/
+      SELECT COUNT(*) INTO @w1 FROM `asterisk_members` t JOIN `queues` q ON t.queue = q.ext_number WHERE q.id = v_queue_id AND t.status = 2 ;
+     SELECT IFNULL(@w1 , 0 ) AS 'تعداد فعال';
+     
+     
+	END */$$
+DELIMITER ;
+
+/* Procedure structure for procedure `p_available_agent` */
+
+/*!50003 DROP PROCEDURE IF EXISTS  `p_available_agent` */;
+
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` PROCEDURE `p_available_agent`(v_queue_id BIGINT)
+BEGIN
+/*SELECT
+   COUNT(*) INTO @w1 
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.to_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'IN'
+    AND t.`status` = 'Talking'
+    AND to_profile_id IS NOT NULL
+     AND  ( queue_id = f_queue_get_by_extnumber(i_queue));
+
+    SELECT
+   COUNT(*) INTO @w2
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.from_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'OUT'
+    AND t.`status` = 'Talking'
+    AND t.from_profile_id IS NOT NULL
+    AND t.from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  ( queue_id = f_queue_get_by_extnumber(i_queue)));*/
+    
+    SELECT COUNT(*) INTO @w1 FROM `asterisk_members` t  WHERE  t.queue=v_queue_id AND t.status = 1 ;
+     
+SELECT  COUNT(*) INTO @w4 FROM `agents_queues` t WHERE ( t.queue_id = f_queue_get_by_extnumber(v_queue_id)) AND t.pause = 1 ;
+ -- SELECT  COUNT(*) INTO @w4 FROM `agents_queues` t WHERE ( queueid = f_queue_get_by_extnumber(i_queue)) AND t.login = 1 ;
+
+     
+     SELECT IFNULL((@w1  -@w4) , 0 );
+     
+     
+	END */$$
+DELIMITER ;
+
+/* Procedure structure for procedure `p_calls_in_queue` */
+
+/*!50003 DROP PROCEDURE IF EXISTS  `p_calls_in_queue` */;
+
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`%` PROCEDURE `p_calls_in_queue`(i_queue VARCHAR(50))
+BEGIN
+     SELECT `Calls` INTO @w1 FROM asterisk_queues WHERE  QueueId = f_queue_get_by_extnumber(i_queue);
+     SELECT IFNULL(@w1 , 0 );
+
+END */$$
+DELIMITER ;
+
+/* Procedure structure for procedure `p_idel_agent` */
+
+/*!50003 DROP PROCEDURE IF EXISTS  `p_idel_agent` */;
+
+DELIMITER $$
+
+/*!50003 CREATE DEFINER=`root`@`localhost` PROCEDURE `p_idel_agent`(v_queue_id BIGINT)
+BEGIN
+SELECT
+   COUNT(*) INTO @w1 
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.to_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'IN'
+    AND t.`status` = 'Talking'
+    AND to_profile_id IS NOT NULL
+     AND  t.queue_id = v_queue_id;
+
+    SELECT
+   COUNT(*) INTO @w2
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.from_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'OUT'
+    AND t.`status` = 'Talking'
+    AND t.from_profile_id IS NOT NULL
+    AND t.from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  aq.queue_id = v_queue_id));
+     
+SELECT  COUNT(*) INTO @w3 FROM `agents_queues` t WHERE t.queue_id =  v_queue_id AND t.pause = 1 ;
+ SELECT  COUNT(*) INTO @w4 FROM `agents_queues` t WHERE t.queue_id =  v_queue_id AND t.login = 1 ;
+
+     
+     SELECT IFNULL(@w4-(@w1 + @w2 + @w3) , 0 );
+     
+     
+END */$$
+DELIMITER ;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
