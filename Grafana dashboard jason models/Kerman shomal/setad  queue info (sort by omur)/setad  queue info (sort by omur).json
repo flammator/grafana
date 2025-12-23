@@ -1,0 +1,1709 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_MYSQL-KERMAN-SHOMAL",
+      "label": "mysql-kerman-shomal",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "mysql",
+      "pluginName": "MySQL"
+    }
+  ],
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "11.6.0"
+    },
+    {
+      "type": "datasource",
+      "id": "mysql",
+      "name": "MySQL",
+      "version": "11.6.0-pre"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "id": 15,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT  CONCAT(p.first_name,' ',p.`last_name`) AS 'کارشناس',\r\n        AVG(recordings.`agentScore`) AS 'متوسط امتیاز'\r\n               FROM recordings\r\n              JOIN `profiles` p\r\n              ON `recordings`.`to_profile_id` = p.id\r\n\r\n              WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n\r\n                AND recordings.server_id = '101'\r\n\r\n                 AND f_queue_get_by_extnumber($queue) = queue_id \r\n\r\n                AND to_profile_id IS NOT NULL\r\n                and recordings.`agentScore` is not null\r\n                \r\n              GROUP BY to_agent\r\n              order by 2\r\n              LIMIT 5",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "امتیاز",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "�تراحت": {
+                  "index": 0,
+                  "text": "استراحت"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 5,
+        "x": 5,
+        "y": 0
+      },
+      "id": 14,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\r\nSELECT tt.pause AS 'مدت توقف',\r\n CONCAT(p.first_name,' ',p.`last_name`)  AS 'کاربر',\r\n SUBSTR(`BASE64_DECODE`(aq.`PausedReason`),6)AS 'وضعیت'\r\nFROM  `asterisk_members` aq\r\nJOIN (\r\nSELECT\r\n  TIMEDIFF(NOW() , MAX(t.`time`)) AS pause,\r\n  t.agent\r\nFROM\r\n  `agent_logs` t\r\n  WHERE t.`time` >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n  AND t.`action_type` = 'pause'\r\n  GROUP BY t.`agent`\r\n   ) tt\r\n  ON tt.agent =  SUBSTR(aq.NAME,7)\r\n  JOIN `queues` q\r\n  ON aq.`Queue` = q.`ext_number`\r\n  JOIN agents a \r\n  ON a.agentid = SUBSTR(aq.NAME,7)\r\n  JOIN `profiles` p \r\n  ON a.profile_id = p.id\r\n  WHERE  aq.`paused` = 1\r\nAND  f_queue_get_by_extnumber($queue) = q.`id`\r\n  ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "توقف",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 5,
+        "x": 10,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CallerIDNum AS  \"تماس از\",\r\nConnectedLineNum AS \"تماس به\",\r\nsec_to_time(WAIT) AS \"انتظار\",\r\nPOSITION AS \"موقعیت\"\r\n FROM asterisk_queue_entries t\r\n JOIN `queues` q\r\n ON t.`Queue` = q.`ext_number`\r\n  WHERE f_queue_get_by_extnumber($queue) = q.`id`\r\n     \r\n     \r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "انتظار در صف",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 5,
+        "x": 15,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\r\n  oc.call_to AS \"شماره داخلی\",\r\n  oc.answer_time AS \"مدت زمان مکالمه\",\r\n  oc.to_profile AS \"کاربر\",\r\n  incall.COUNT AS \"تماس ورودی\",\r\n  outcall.COUNT AS \"تماس خروجی\",\r\n  login.login AS \"لاگین صف\",\r\n  oc.call_from AS \"تماس\"\r\nFROM\r\n  (SELECT\r\n    CONCAT(p.first_name, ' ', p.`last_name`) AS \"to_profile\",\r\n    t.call_to_exten as call_to,\r\n    CONCAT(t.`call_from`, '=>') AS call_from,\r\n    TIMEDIFF(NOW() , t.`answer_time`) AS answer_time,\r\n    t.to_agent AS agentid\r\n  FROM\r\n    online_calls t\r\n    JOIN agents a\r\n      ON t.to_agent = a.agentid\r\n    JOIN `profiles` p\r\n      ON a.profile_id = p.id\r\n  WHERE t.`call_direction` = 'IN'\r\n    AND t.`status` = 'Talking'\r\n    AND to_profile_id IS NOT NULL\r\n     AND queue_id = f_queue_get_by_extnumber($queue)\r\n  ) oc\r\n  LEFT JOIN\r\n    (SELECT\r\n      TIMEDIFF(NOW() , MAX(t.`time`)) AS login,\r\n      t.`agent`\r\n    FROM\r\n      `agent_logs` t\r\n      JOIN agents a\r\n        ON t.`agent` = a.`agentid`\r\n      JOIN `agents_queues` aq\r\n        ON a.`id` = aq.`agent_id`\r\n    WHERE t.`action_type` = 'login'\r\n      AND aq.`login` = 1\r\n      AND t.`time` >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n       AND queue_id = f_queue_get_by_extnumber($queue) \r\n    GROUP BY t.`agent`) login\r\n    ON oc.agentid = login.agent\r\n  LEFT JOIN\r\n    (SELECT\r\n      to_agent agentid,\r\n      COUNT(recordings.id) AS COUNT\r\n    FROM\r\n      recordings\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n       AND queue_id = f_queue_get_by_extnumber($queue) \r\n      AND to_profile_id IS NOT NULL\r\n      AND to_agent IS NOT NULL\r\n    GROUP BY to_agent) incall\r\n    ON oc.agentid = incall.agentid\r\n  LEFT JOIN\r\n    (SELECT\r\n      from_agent agentid,\r\n      COUNT(recordings.id) AS COUNT\r\n    FROM\r\n      recordings\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n      AND call_direction = 'OUT'\r\n      AND trunk_id IS NOT NULL\r\n      AND from_profile_id IS NOT NULL\r\n      AND from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  queue_id = f_queue_get_by_extnumber($queue)))\r\n    GROUP BY from_agent) outcall\r\n    ON oc.agentid = outcall.agentid\r\n    \r\n    UNION \r\n    \r\n    SELECT\r\n  oc.call_from AS \"شماره داخلی\",\r\n  oc.answer_time AS \"مدت زمان مکالمه\",\r\n  oc.to_profile AS \"کاربر\",\r\n  incall.COUNT AS \"تماس ورودی\",\r\n  outcall.COUNT AS \"تماس خروجی\",\r\n  login.login AS \"لاگین صف\",\r\n  oc.call_from2 AS \"تماس\"\r\nFROM\r\n  (SELECT\r\n    CONCAT(p.first_name, ' ', p.`last_name`) AS \"to_profile\",\r\n    t.`call_from`,\r\n    CONCAT(t.`call_to`, '<=') AS call_from2,\r\n    TIMEDIFF(NOW() , t.`answer_time`) AS answer_time,\r\n    t.from_agent AS agentid\r\n  FROM\r\n    online_calls t\r\n    JOIN agents a\r\n      ON t.from_agent = a.agentid\r\n    JOIN `profiles` p\r\n      ON a.profile_id = p.id\r\n  WHERE t.`call_direction` = 'OUT'\r\n    AND t.`status` = 'Talking'\r\n    AND t.from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  queue_id = f_queue_get_by_extnumber($queue)))\r\n    AND from_profile_id IS NOT NULL\r\n    \r\n  ) oc\r\n  LEFT JOIN\r\n    (SELECT\r\n      TIMEDIFF(NOW() , MAX(t.`time`)) AS login,\r\n      t.`agent`\r\n    FROM\r\n      `agent_logs` t\r\n      JOIN agents a\r\n        ON t.`agent` = a.`agentid`\r\n      JOIN `agents_queues` aq\r\n        ON a.`id` = aq.`agent_id`\r\n    WHERE t.`action_type` = 'login'\r\n      AND aq.`login` = 1\r\n      AND t.`time` >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n       AND queue_id = f_queue_get_by_extnumber($queue) \r\n    GROUP BY t.`agent`) login\r\n    ON oc.agentid = login.agent\r\n  LEFT JOIN\r\n    (SELECT\r\n      to_agent agentid,\r\n      COUNT(recordings.id) AS COUNT\r\n    FROM\r\n      recordings\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n       AND queue_id = f_queue_get_by_extnumber($queue) \r\n      AND to_profile_id IS NOT NULL\r\n      AND to_agent IS NOT NULL\r\n    GROUP BY to_agent) incall\r\n    ON oc.agentid = incall.agentid\r\n  LEFT JOIN\r\n    (SELECT\r\n      from_agent agentid,\r\n      COUNT(recordings.id) AS COUNT\r\n    FROM\r\n      recordings\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n      AND call_direction = 'OUT'\r\n      AND trunk_id IS NOT NULL\r\n      AND from_profile_id IS NOT NULL\r\n      AND from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  queue_id = f_queue_get_by_extnumber($queue)))\r\n    GROUP BY from_agent) outcall\r\n    ON oc.agentid = outcall.agentid",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "تماس",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 20,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) FROM tgui.recordings t WHERE t.`date_created_ts` >= DATE(NOW()) -- AND t.`call_status` = 'ANSWER'\r\n AND f_queue_get_by_extnumber($queue) = queue_id AND t.to_profile_id IS NOT NULL ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "تماس پاسخ داده",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 22,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) FROM tgui.recordings t WHERE t.`date_created_ts` >= DATE(NOW()) /*AND  t.`call_direction` = 'IN' */\r\nAND f_queue_get_by_extnumber($queue) = queue_id",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "کل تماس ها",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 20,
+        "y": 3
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "CALL p_idel_agent(f_queue_get_by_extnumber($queue))",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "کارشناسان آزاد",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 22,
+        "y": 3
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select count(*) from agents_queues where f_queue_get_by_extnumber($queue) = queue_id and login = 1",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "تعداد کل کارشناسان ",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 20,
+        "y": 6
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select count(*) from agents_queues where f_queue_get_by_extnumber($queue) = queue_id and login = 1 and pause = 1 ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "استراحت",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 22,
+        "y": 6
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "CALL p_active_agent(f_queue_get_by_extnumber($queue))",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "در حال مکالمه",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 5,
+        "x": 0,
+        "y": 8
+      },
+      "id": 16,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CONCAT(p.first_name, ' ', p.`last_name`) AS \"کارشناس\",SEC_TO_TIME(cast(e.duraton as integer)) AS \"زمان پاسخگویی\",IFNULL(al.t,0) AS miss\r\nFROM (\r\nSELECT incall.name_o  AS e , (IFNULL(incall.duration,0) + IFNULL(outcall.duration,0)) AS duraton\r\nFROM (\r\nSELECT\r\n  to_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\nFROM\r\n  recordings\r\n  JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\nWHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n  AND recordings.server_id = '101'\r\n  AND f_queue_get_by_extnumber($queue) = queue_id \r\n  AND to_profile_id IS NOT NULL\r\nGROUP BY to_agent) incall\r\n\r\n LEFT  JOIN (SELECT\r\n     from_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\n    FROM\r\n      recordings\r\n      JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n      AND call_direction = 'OUT'\r\n      AND trunk_id IS NOT NULL\r\n      AND from_profile_id IS NOT NULL\r\n      AND from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  f_queue_get_by_extnumber($queue) = aq.queue_id ))\r\n    GROUP BY from_agent)outcall\r\n     ON incall.name_o = outcall.name_o\r\n     WHERE incall.name_o IS NOT NULL \r\n   UNION \r\n   SELECT outcall.name_o AS e  , (IFNULL(incall.duration,0) + IFNULL(outcall.duration,0)) AS duration\r\nFROM (\r\nSELECT\r\n  to_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\nFROM\r\n  recordings\r\n  JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\nWHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n  AND recordings.server_id = '101'\r\n  AND f_queue_get_by_extnumber($queue) = queue_id \r\n  AND to_profile_id IS NOT NULL\r\nGROUP BY to_agent) incall\r\n\r\n RIGHT   JOIN (SELECT\r\n     from_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\n    FROM\r\n      recordings\r\n      JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n      AND call_direction = 'OUT'\r\n      AND trunk_id IS NOT NULL\r\n      AND from_profile_id IS NOT NULL\r\n      AND from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  f_queue_get_by_extnumber($queue) = aq.queue_id ))\r\n    GROUP BY from_agent)outcall\r\n     ON incall.name_o = outcall.name_o\r\n     WHERE outcall.name_o IS NOT NULL )e\r\n     LEFT JOIN (SELECT COUNT(*) AS t , al.`agent` FROM agent_logs al WHERE al.`time` > DATE(NOW()) AND al.`action_type` = 'miss' GROUP BY al.`agent`) al\r\n     ON e.e = al.`agent`\r\n     JOIN agents a ON e.e = a.`agentid` \r\n     JOIN `profiles` p ON a.`profile_id` = p.`id`\r\n\tUNION \t\r\n     \r\n     SELECT CONCAT(p.first_name, ' ', p.`last_name`) AS \"کارشناس\",SEC_TO_TIME(cast(e.duraton As integer)) AS \"زمان پاسخگویی\",IFNULL(al.t,0) AS miss\r\nFROM (\r\nSELECT incall.name_o  AS e , (IFNULL(incall.duration,0) + IFNULL(outcall.duration,0)) AS duraton\r\nFROM (\r\nSELECT\r\n  to_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\nFROM\r\n  recordings\r\n  JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\nWHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n  AND recordings.server_id = '101'\r\n  AND f_queue_get_by_extnumber($queue) = queue_id \r\n  AND to_profile_id IS NOT NULL\r\nGROUP BY to_agent) incall\r\n\r\n LEFT  JOIN (SELECT\r\n     from_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\n    FROM\r\n      recordings\r\n      JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n      AND call_direction = 'OUT'\r\n      AND trunk_id IS NOT NULL\r\n      AND from_profile_id IS NOT NULL\r\n      AND from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  f_queue_get_by_extnumber($queue) = aq.queue_id ))\r\n    GROUP BY from_agent)outcall\r\n     ON incall.name_o = outcall.name_o\r\n     WHERE incall.name_o IS NOT NULL \r\n   UNION \r\n   SELECT outcall.name_o AS e  , (IFNULL(incall.duration,0) + IFNULL(outcall.duration,0)) AS duration\r\nFROM (\r\nSELECT\r\n  to_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\nFROM\r\n  recordings\r\n  JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\nWHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n  AND recordings.server_id = '101'\r\n  AND f_queue_get_by_extnumber($queue) = queue_id \r\n  AND to_profile_id IS NOT NULL\r\nGROUP BY to_agent) incall\r\n\r\n RIGHT   JOIN (SELECT\r\n     from_agent AS name_o,\r\n  SUM(recordings.duration) AS duration\r\n    FROM\r\n      recordings\r\n      JOIN `profiles` p\r\n    ON `recordings`.`to_profile_id` = p.id\r\n    WHERE date_created_ts >= DATE_FORMAT(NOW(), '%Y/%m/%d')\r\n      AND recordings.server_id = '101'\r\n      AND call_direction = 'OUT'\r\n      AND trunk_id IS NOT NULL\r\n      AND from_profile_id IS NOT NULL\r\n      AND from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  f_queue_get_by_extnumber($queue) = aq.queue_id ))\r\n    GROUP BY from_agent)outcall\r\n     ON incall.name_o = outcall.name_o\r\n     WHERE outcall.name_o IS NOT NULL )e\r\n     RIGHT JOIN (SELECT COUNT(*) AS t , al.`agent` FROM agent_logs al WHERE al.`time` > DATE(NOW()) AND al.`action_type` = 'miss' GROUP BY al.`agent`) al\r\n     ON e.e = al.`agent`\r\n     JOIN agents a ON e.e = a.`agentid` \r\n     JOIN `profiles` p ON a.`profile_id` = p.`id`\r\n     \r\n     \r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "زمان پاسخگویی",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 20,
+        "y": 9
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^max_hold$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ifnull(SEC_TO_TIME(MAX(t.`hold_time`)),0) AS 'max_hold' FROM `recordings` t WHERE f_queue_get_by_extnumber($queue) = queue_id  and   t.`date_created_ts` >= DATE(NOW())   AND to_profile_id IS NOT NULL",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "بیشترین زمان انتظار",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 22,
+        "y": 9
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^max_hold$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "  SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(t.`hold_time`))),0) AS 'max_hold' FROM `recordings` t WHERE  f_queue_get_by_extnumber($queue) = queue_id  AND t.`date_created_ts` >= DATE(NOW()) AND to_profile_id IS NOT NULL",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "میانگین زمان انتظار",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 20,
+        "y": 12
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\r\n  IFNULL(\r\n    (SELECT\r\n      COUNT(*)\r\n    FROM\r\n      tgui.recordings t\r\n    WHERE t.`date_created_ts` >= DATE(NOW())\r\n      -- AND t.`call_status` = 'ANSWER'\r\n      AND t.to_profile_id IS NOT NULL\r\n     -- AND t.`call_direction` = 'IN'\r\n      AND f_queue_get_by_extnumber($queue) = queue_id\r\n        ) /\r\n    (SELECT\r\n      COUNT(*)\r\n    FROM\r\n      tgui.recordings t\r\n    WHERE t.`date_created_ts` >= DATE(NOW())\r\n      -- AND t.`call_direction` = 'IN'\r\n      AND f_queue_get_by_extnumber($queue) = queue_id\r\n        \r\n  ),0) * 100",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "answer rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 22,
+        "y": 12
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^IFNULL\\(SEC_TO_TIME\\(ROUND\\(AVG\\(t\\.duration\\)\\)\\),0\\)$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(t.duration))),0)  FROM `recordings` t WHERE f_queue_get_by_extnumber($queue) = queue_id AND t.`date_created_ts` >= DATE(NOW())",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "میانگین مدت مکالمه",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 20,
+        "y": 15
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^count\\( CASE WHEN f_miss_call\\(r\\.date_start_ts, r\\.date_created_ts, r\\.caller_id\\)=3 THEN 1 ELSE NULL END \\)$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \r\n     count( CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id)=3 THEN 1 ELSE NULL END )\r\n  FROM recordings r\r\n WHERE r.date_created_ts >= DATE(NOW())\r\n   AND r.date_created_ts < NOW()\r\n  AND f_queue_get_by_extnumber($queue) = queue_id",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Miss",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 22,
+        "y": 15
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT IFNULL((SELECT \r\n      COUNT(CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id)=2 THEN 1 ELSE NULL END ) \r\n  FROM recordings r\r\n WHERE r.date_created_ts >= DATE(NOW())\r\n   AND r.date_created_ts < NOW()\r\n  AND (f_queue_get_by_extnumber($queue) IN ( queue_id ))\r\n   AND (r.to_agent IS NULL)),0)/\r\nIFNULL((SELECT COUNT(*) FROM tgui.recordings t WHERE t.`date_created_ts` >= DATE(NOW()) \r\n/*AND t.`call_direction` = 'IN'*/ AND (f_queue_get_by_extnumber($queue) IN ( queue_id ))),1) *100 AS 'abandoned',IFNULL((SELECT \r\n      COUNT(CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id)=2 THEN 1 ELSE NULL END ) \r\n  FROM recordings r\r\n WHERE r.date_created_ts >= DATE(NOW())\r\n   AND r.date_created_ts < NOW()\r\n  AND (f_queue_get_by_extnumber($queue) IN ( queue_id ))\r\n   AND (r.to_agent IS NULL) /*SELECT COUNT(*) FROM tgui.recordings t WHERE t.`date_created_ts` >= DATE(NOW()) \r\n AND ($queue IN ( queue_id ) ) AND t.to_profile_id IS  NULL*/),0) AS COUNT",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "قطع در صف",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missed_calls_dashboard"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "answered_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red"
+                    },
+                    {
+                      "color": "green",
+                      "value": 80
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 19,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "insert_time"
+          }
+        ]
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "dataset": "tgui",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT *\r\nFROM tgui.queue_grafana\r\nWHERE insert_time >= NOW() - INTERVAL 60 SECOND\r\nGROUP BY NAME\r\nORDER BY insert_time DESC\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_MYSQL-KERMAN-SHOMAL}"
+          }
+        }
+      ],
+      "title": "kerman all in one",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "definition": " SELECT DISTINCT CONCAT('queue=','\"',q.ext_number,'\"','queue_name=','\"',q.name,'\"') FROM `queues` q JOIN `departments` d ON q.`department_id` = d.`id` JOIN `profiles` p \nON d.`id` = p.`department_id` LEFT JOIN `users` u ON p.`id` = u.`profile_id` WHERE  '${__user.login}' = u.`username` OR 1<=(SELECT COUNT(*) FROM `users` u JOIN `groups_users` gu ON u.`id` = gu.user_id \nJOIN `groups_special_permissions` gsp ON gu.group_id = gsp.group_id  JOIN `special_permissions` sp \nON gsp.special_permission_id = sp.id WHERE  '${__user.login}' = u.`username`  AND sp.name = 'Agent Supervisor')",
+        "name": "queue",
+        "options": [],
+        "query": " SELECT DISTINCT CONCAT('queue=','\"',q.ext_number,'\"','queue_name=','\"',q.name,'\"') FROM `queues` q JOIN `departments` d ON q.`department_id` = d.`id` JOIN `profiles` p \nON d.`id` = p.`department_id` LEFT JOIN `users` u ON p.`id` = u.`profile_id` WHERE  '${__user.login}' = u.`username` OR 1<=(SELECT COUNT(*) FROM `users` u JOIN `groups_users` gu ON u.`id` = gu.user_id \nJOIN `groups_special_permissions` gsp ON gu.group_id = gsp.group_id  JOIN `special_permissions` sp \nON gsp.special_permission_id = sp.id WHERE  '${__user.login}' = u.`username`  AND sp.name = 'Agent Supervisor')",
+        "refresh": 1,
+        "regex": "/queue_name=\"(?<text>[^\"]+)|queue=\"(?<value>[^\"]+)/g",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true,
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "utc",
+  "title": "queue info",
+  "uid": "fej2prlyk8jcwa",
+  "version": 93,
+  "weekStart": ""
+}
