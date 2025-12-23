@@ -1,0 +1,36 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_answerd_rate`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_answerd_rate`(i_queue VARCHAR(50)) RETURNS DECIMAL(5,2)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE total INT DEFAULT 1;
+    DECLARE answered INT DEFAULT 0;
+    DECLARE rate DECIMAL(5,2) DEFAULT 0;
+
+    -- Total calls in the queue
+    SELECT IFNULL(COUNT(*), 0) INTO total
+    FROM recordings r
+    WHERE queue_id = f_queue_get_by_extnumber(i_queue)
+      AND r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW();
+
+    -- Answered calls
+    SELECT IFNULL(COUNT(*), 0) INTO answered
+    FROM recordings r
+    WHERE queue_id = f_queue_get_by_extnumber(i_queue)
+      AND r.to_agent IS NOT NULL
+      AND r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW();
+
+    -- Calculate rate as percentage and round to 2 decimals
+    SET rate = ROUND((answered / total) * 100, 2);
+
+    RETURN rate;
+END$$
+
+DELIMITER ;

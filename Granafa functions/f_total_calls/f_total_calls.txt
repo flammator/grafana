@@ -1,0 +1,22 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_total_calls`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_total_calls`(i_queue VARCHAR(50)) RETURNS INT(11)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE call_count INT DEFAULT 0;
+
+    SELECT COUNT(*)
+      INTO call_count
+    FROM recordings
+    WHERE date_created_ts >= CURDATE()
+      AND queue_id = f_queue_get_by_extnumber(i_queue);
+
+    RETURN call_count;
+END$$
+
+DELIMITER ;

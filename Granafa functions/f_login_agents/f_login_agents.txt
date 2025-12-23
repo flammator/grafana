@@ -1,0 +1,22 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_login_agents`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_login_agents`(i_queue VARCHAR(50)) RETURNS INT(11)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE login_count INT DEFAULT 0;
+
+    SELECT IFNULL(COUNT(*), 0)
+      INTO login_count
+    FROM agents_queues aq
+    WHERE aq.queue_id = f_queue_get_by_extnumber(i_queue)
+      AND aq.login = '1';
+
+    RETURN login_count;
+END$$
+
+DELIMITER ;

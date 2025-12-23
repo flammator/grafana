@@ -1,0 +1,28 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_abandoned_calls`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_abandoned_calls`(i_queue VARCHAR(50)) RETURNS INT(4)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE w3 INT DEFAULT 0;
+
+    SELECT IFNULL(COUNT(CASE 
+                            WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id) = 2 
+                            THEN 1 
+                            ELSE NULL 
+                        END), 0)
+    INTO w3
+    FROM recordings r
+    WHERE r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW()
+      AND queue_id = f_queue_get_by_extnumber(i_queue)
+      AND r.to_agent IS NULL;
+
+    RETURN w3;
+END$$
+
+DELIMITER ;

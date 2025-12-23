@@ -1,0 +1,24 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_missed_call_dashbord`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_missed_call_dashbord`(i_queue VARCHAR(50)) RETURNS INT(11)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE missed_count INT DEFAULT 0;
+
+    SELECT COUNT(CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id) = 3 
+                      THEN 1 ELSE NULL END)
+      INTO missed_count
+    FROM recordings r
+    WHERE r.queue_id = f_queue_get_by_extnumber(i_queue)
+      AND r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW();
+
+    RETURN missed_count;
+END$$
+
+DELIMITER ;

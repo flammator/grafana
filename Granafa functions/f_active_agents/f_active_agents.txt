@@ -1,0 +1,42 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_active_agents`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_active_agents`(v_queue_id BIGINT) RETURNS INT(11)
+    DETERMINISTIC
+BEGIN
+    DECLARE w1 INT DEFAULT 0;
+    DECLARE w2 INT DEFAULT 0;
+
+    -- Count incoming calls for the queue
+    SELECT COUNT(*) INTO w1
+    FROM online_calls t
+    JOIN agents a ON t.to_agent = a.agentid
+    JOIN `profiles` p ON a.profile_id = p.id
+    WHERE t.call_direction = 'IN'
+      AND t.status = 'Talking'
+      AND t.to_profile_id IS NOT NULL
+      AND t.queue_id = v_queue_id;
+
+    -- Count outgoing calls for the queue
+    SELECT COUNT(*) INTO w2
+    FROM online_calls t
+    JOIN agents a ON t.from_agent = a.agentid
+    JOIN `profiles` p ON a.profile_id = p.id
+    WHERE t.call_direction = 'OUT'
+      AND t.status = 'Talking'
+      AND t.from_profile_id IS NOT NULL
+      AND t.from_agent IN (
+          SELECT DISTINCT a.agentid 
+          FROM agents a
+          JOIN agents_queues aq ON a.id = aq.agent_id
+          WHERE aq.queue_id = v_queue_id
+      );
+
+    -- Return the total active agents
+    RETURN IFNULL(w1 + w2, 0);
+END$$
+
+DELIMITER ;

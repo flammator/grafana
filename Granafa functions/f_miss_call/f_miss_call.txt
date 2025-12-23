@@ -1,0 +1,36 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_miss_call`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_miss_call`(
+    i_start DATETIME,
+    i_end DATETIME,
+    i_caller_id VARCHAR(50)
+) RETURNS INT(11)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE result INT DEFAULT 1;
+
+    -- If the call was never assigned to an agent, it is missed
+    IF EXISTS (
+        SELECT 1
+        FROM recordings r
+        WHERE r.date_created_ts = i_end
+          AND r.caller_id = i_caller_id
+          AND r.to_agent IS NULL
+    ) THEN
+        SET result = 3; -- missed
+    ELSEIF TIMESTAMPDIFF(SECOND, i_start, i_end) > 180 THEN
+        -- Example: waited too long
+        SET result = 2; -- abandoned
+    ELSE
+        SET result = 1; -- answered
+    END IF;
+
+    RETURN result;
+END$$
+
+DELIMITER ;

@@ -1,0 +1,28 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_longest_wait_time`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_longest_wait_time`(i_queue VARCHAR(50)) RETURNS TIME
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE longest_wait TIME DEFAULT '00:00:00';
+    DECLARE queue_id BIGINT;
+
+    -- Convert queue extension to queue_id
+    SET queue_id = f_queue_get_by_extnumber(i_queue);
+
+    -- Get longest wait time for today
+    SELECT IFNULL(SEC_TO_TIME(ROUND(MAX(hold_time))), '00:00:00')
+      INTO longest_wait
+      FROM recordings r
+      WHERE r.queue_id = queue_id
+        AND r.date_created_ts >= CURDATE()
+        AND r.date_created_ts < NOW();
+
+    RETURN longest_wait;
+END$$
+
+DELIMITER ;

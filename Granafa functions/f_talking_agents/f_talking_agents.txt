@@ -1,0 +1,22 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_talking_agents`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_talking_agents`(i_queue VARCHAR(50)) RETURNS INT(11)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE talking_count INT DEFAULT 0;
+
+    SELECT COUNT(*)
+      INTO talking_count
+    FROM online_calls
+    WHERE queue_id = f_queue_get_by_extnumber(i_queue)
+      AND STATUS = 'Talking';
+
+    RETURN talking_count;
+END$$
+
+DELIMITER ;

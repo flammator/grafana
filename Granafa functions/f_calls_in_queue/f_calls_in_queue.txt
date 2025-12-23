@@ -1,0 +1,26 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_calls_in_queue`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_calls_in_queue`(i_queue VARCHAR(50)) RETURNS INT(11)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE calls_count INT DEFAULT 0;
+    DECLARE queue_id BIGINT;
+
+    -- Convert ext_number to queue_id
+    SET queue_id = f_queue_get_by_extnumber(i_queue);
+
+    -- Get calls in queue
+    SELECT IFNULL(Calls, 0)
+      INTO calls_count
+      FROM asterisk_queues aq
+      WHERE aq.QueueId = queue_id;
+
+    RETURN calls_count;
+END$$
+
+DELIMITER ;

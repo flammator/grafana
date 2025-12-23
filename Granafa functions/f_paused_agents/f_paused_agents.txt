@@ -1,0 +1,21 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_paused_agents`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_paused_agents`(v_queue_id BIGINT) RETURNS BIGINT(20)
+    DETERMINISTIC
+BEGIN
+    DECLARE w1 BIGINT DEFAULT 0;
+
+    -- Count paused agents in the given queue
+    SELECT COUNT(*) INTO w1
+    FROM asterisk_members am
+    WHERE am.Queue = v_queue_id
+      AND am.Paused = 1;
+
+    RETURN IFNULL(w1, 0);
+END$$
+
+DELIMITER ;

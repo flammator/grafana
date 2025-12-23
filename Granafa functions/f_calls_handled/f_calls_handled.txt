@@ -1,0 +1,24 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_calls_handled`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_calls_handled`(i_queue VARCHAR(50)) RETURNS INT(4)
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE handled_count INT DEFAULT 0;
+
+    SELECT IFNULL(COUNT(*), 0)
+    INTO handled_count
+    FROM recordings r
+    WHERE r.queue_id = f_queue_get_by_extnumber(i_queue)
+      AND r.to_agent IS NOT NULL
+      AND r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW();
+
+    RETURN handled_count;
+END$$
+
+DELIMITER ;

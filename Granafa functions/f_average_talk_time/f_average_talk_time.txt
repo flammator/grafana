@@ -1,0 +1,24 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `f_average_talk_time`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `f_average_talk_time`(i_queue VARCHAR(50)) RETURNS TIME
+    READS SQL DATA
+    DETERMINISTIC
+BEGIN
+    DECLARE avg_duration TIME;
+
+    SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(duration))), '00:00:00')
+    INTO avg_duration
+    FROM recordings r
+    WHERE r.queue_id = f_queue_get_by_extnumber(i_queue)
+      AND r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW()
+      AND r.to_agent IS NOT NULL;
+
+    RETURN avg_duration;
+END$$
+
+DELIMITER ;

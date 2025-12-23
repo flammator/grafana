@@ -1,0 +1,73 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP FUNCTION IF EXISTS `BASE64_DECODE`$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `BASE64_DECODE`(input BLOB) RETURNS BLOB
+    DETERMINISTIC
+BEGIN
+	DECLARE ret BLOB DEFAULT '';
+	DECLARE done TINYINT DEFAULT 0;
+
+	IF input IS NULL THEN
+		RETURN NULL;
+	END IF;
+
+each_block:
+	WHILE NOT done DO BEGIN
+		DECLARE accum_value BIGINT UNSIGNED DEFAULT 0;
+		DECLARE in_count TINYINT DEFAULT 0;
+		DECLARE out_count TINYINT DEFAULT 3;
+
+each_input_char:
+		WHILE in_count < 4 DO BEGIN
+			DECLARE first_char CHAR(1);
+	
+			IF LENGTH(input) = 0 THEN
+				RETURN ret;
+			END IF;
+	
+			SET first_char = SUBSTRING(input,1,1);
+			SET input = SUBSTRING(input,2);
+	
+			BEGIN
+				DECLARE tempval TINYINT UNSIGNED;
+				DECLARE error TINYINT DEFAULT 0;
+				DECLARE base64_getval CURSOR FOR SELECT val FROM base64_data WHERE c = first_char;
+				DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET error = 1;
+	
+				OPEN base64_getval;
+				FETCH base64_getval INTO tempval;
+				CLOSE base64_getval;
+
+				IF error THEN
+					ITERATE each_input_char;
+				END IF;
+
+				SET accum_value = (accum_value << 6) + tempval;
+			END;
+
+			SET in_count = in_count + 1;
+
+			IF first_char = '=' THEN
+				SET done = 1;
+				SET out_count = out_count - 1;
+			END IF;
+		END; END WHILE;
+
+		
+
+		
+		WHILE out_count > 0 DO BEGIN
+			SET ret = CONCAT(ret,CHAR((accum_value & 0xff0000) >> 16));
+			SET out_count = out_count - 1;
+			SET accum_value = (accum_value << 8) & 0xffffff;
+		END; END WHILE;
+	
+	END; END WHILE;
+
+	RETURN ret;
+END$$
+
+DELIMITER ;
