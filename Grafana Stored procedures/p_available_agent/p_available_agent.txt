@@ -1,0 +1,46 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP PROCEDURE IF EXISTS `p_available_agent`$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `p_available_agent`(v_queue_id BIGINT)
+BEGIN
+/*SELECT
+   COUNT(*) INTO @w1 
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.to_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'IN'
+    AND t.`status` = 'Talking'
+    AND to_profile_id IS NOT NULL
+     AND  ( queue_id = f_queue_get_by_extnumber(i_queue));
+
+    SELECT
+   COUNT(*) INTO @w2
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.from_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'OUT'
+    AND t.`status` = 'Talking'
+    AND t.from_profile_id IS NOT NULL
+    AND t.from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  ( queue_id = f_queue_get_by_extnumber(i_queue)));*/
+    
+    SELECT COUNT(*) INTO @w1 FROM `asterisk_members` t  WHERE  t.queue=v_queue_id AND t.status = 1 ;
+     
+SELECT  COUNT(*) INTO @w4 FROM `agents_queues` t WHERE ( t.queue_id = f_queue_get_by_extnumber(v_queue_id)) AND t.pause = 1 ;
+ -- SELECT  COUNT(*) INTO @w4 FROM `agents_queues` t WHERE ( queueid = f_queue_get_by_extnumber(i_queue)) AND t.login = 1 ;
+
+     
+     SELECT IFNULL((@w1  -@w4) , 0 );
+     
+     
+	END$$
+
+DELIMITER ;

@@ -1,0 +1,127 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP PROCEDURE IF EXISTS `p_full_queue_stats_with_answered_rate`$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `p_full_queue_stats_with_answered_rate`(
+    IN i_queue VARCHAR(50)
+)
+BEGIN
+    DECLARE o_total_calls INT DEFAULT 0;
+    DECLARE o_longest_wait TIME DEFAULT '00:00:00';
+    DECLARE o_logged_in_agents INT DEFAULT 0;
+    DECLARE o_available_agents INT DEFAULT 0;
+    DECLARE o_talking_agents INT DEFAULT 0;
+    DECLARE o_calls_in_queue INT DEFAULT 0;
+    DECLARE o_calls_handled INT DEFAULT 0;
+    DECLARE o_average_talk_time TIME DEFAULT '00:00:00';
+    DECLARE o_abandoned_calls INT DEFAULT 0;
+    DECLARE o_average_wait_time TIME DEFAULT '00:00:00';
+    DECLARE o_missed_call_dashbord INT DEFAULT 0;
+    DECLARE o_answered_rate FLOAT DEFAULT 0;
+    DECLARE o_paused_agents INT DEFAULT 0;   -- ✅ new variable
+    DECLARE v_queue_id BIGINT DEFAULT 0;
+    DECLARE total_calls_today INT DEFAULT 1;
+    DECLARE answered_calls_today INT DEFAULT 0;
+
+    SET v_queue_id = f_queue_get_by_extnumber(i_queue);
+
+    SELECT COUNT(*) INTO o_total_calls
+    FROM recordings
+    WHERE date_created_ts >= CURDATE()
+      AND queue_id = v_queue_id;
+
+    SELECT IFNULL(SEC_TO_TIME(ROUND(MAX(hold_time))), '00:00:00') INTO o_longest_wait
+    FROM recordings
+    WHERE date_created_ts >= CURDATE()
+      AND queue_id = v_queue_id
+      AND to_profile_id IS NOT NULL;
+
+    SELECT COUNT(*) INTO o_logged_in_agents
+    FROM agents_queues
+    WHERE queue_id = v_queue_id
+      AND login = '1';
+
+    SET o_available_agents = f_available_agents(i_queue);
+
+    SELECT COUNT(*) INTO o_talking_agents
+    FROM online_calls
+    WHERE queue_id = v_queue_id
+      AND STATUS = 'Talking';
+
+    -- ✅ paused agents count
+    SELECT COUNT(*) INTO o_paused_agents
+    FROM asterisk_members
+    WHERE Queue = i_queue
+      AND Paused = 1;
+
+    SELECT Calls INTO o_calls_in_queue
+    FROM asterisk_queues
+    WHERE QueueId = v_queue_id;
+
+    SELECT COUNT(*) INTO o_calls_handled
+    FROM recordings
+    WHERE date_created_ts >= CURDATE()
+      AND queue_id = v_queue_id
+      AND call_status = 'answer'
+      AND to_profile_id IS NOT NULL;
+
+    SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(duration))), '00:00:00') INTO o_average_talk_time
+    FROM recordings
+    WHERE date_created_ts >= CURDATE()
+      AND queue_id = v_queue_id;
+
+    SELECT IFNULL((
+      SELECT COUNT(CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id) = 2 THEN 1 END)
+      FROM recordings r
+      WHERE r.date_created_ts >= DATE(NOW())
+        AND r.date_created_ts < NOW()
+        AND r.queue_id = v_queue_id
+        AND r.to_agent IS NULL
+    ), 0) INTO o_abandoned_calls;
+
+    SELECT IFNULL(SEC_TO_TIME(ROUND(AVG(hold_time))), '00:00:00') INTO o_average_wait_time
+    FROM recordings
+    WHERE date_created_ts >= CURDATE()
+      AND queue_id = v_queue_id
+      AND to_profile_id IS NOT NULL;
+
+    SELECT COUNT(CASE WHEN f_miss_call(r.date_start_ts, r.date_created_ts, r.caller_id) = 3 THEN 1 END)
+      INTO o_missed_call_dashbord
+    FROM recordings r
+    WHERE r.date_created_ts >= DATE(NOW())
+      AND r.date_created_ts < NOW()
+      AND r.queue_id = v_queue_id;
+
+    SELECT COUNT(*) INTO answered_calls_today
+    FROM recordings
+    WHERE date_created_ts >= DATE(NOW())
+      AND to_profile_id IS NOT NULL
+      AND queue_id = v_queue_id;
+
+    SELECT COUNT(*) INTO total_calls_today
+    FROM recordings
+    WHERE date_created_ts >= DATE(NOW())
+      AND queue_id = v_queue_id;
+
+    SET o_answered_rate = IFNULL((answered_calls_today / total_calls_today) * 100, 0);
+
+    SELECT
+        i_queue AS Queue_number,
+        o_total_calls AS total_calls,
+        o_longest_wait AS longest_wait_time,
+        o_logged_in_agents AS logged_in_agents,
+        o_available_agents AS available_agent,
+        o_paused_agents AS paused_agents,          -- ✅ added output
+        o_talking_agents AS talking_agents,
+        o_calls_in_queue AS calls_in_queue,
+        o_calls_handled AS calls_handled,
+        o_average_talk_time AS average_talk_time,
+        o_abandoned_calls AS abandoned_calls,
+        o_average_wait_time AS average_wait_time,
+        o_missed_call_dashbord AS missed_calls,
+        o_answered_rate AS answered_rate;
+END$$
+
+DELIMITER ;

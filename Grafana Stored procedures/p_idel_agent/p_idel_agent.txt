@@ -1,0 +1,44 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP PROCEDURE IF EXISTS `p_idel_agent`$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `p_idel_agent`(v_queue_id BIGINT)
+BEGIN
+SELECT
+   COUNT(*) INTO @w1 
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.to_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'IN'
+    AND t.`status` = 'Talking'
+    AND to_profile_id IS NOT NULL
+     AND  t.queue_id = v_queue_id;
+
+    SELECT
+   COUNT(*) INTO @w2
+  FROM
+    online_calls t
+    JOIN agents a
+      ON t.from_agent = a.agentid
+    JOIN `profiles` p
+      ON a.profile_id = p.id
+  WHERE t.`call_direction` = 'OUT'
+    AND t.`status` = 'Talking'
+    AND t.from_profile_id IS NOT NULL
+    AND t.from_agent IN (SELECT DISTINCT a.agentid FROM agents a WHERE a.id IN (SELECT agent_id FROM `agents_queues` aq WHERE  aq.queue_id = v_queue_id));
+     
+SELECT  COUNT(*) INTO @w3 FROM `agents_queues` t WHERE t.queue_id =  v_queue_id AND t.pause = 1 ;
+ SELECT  COUNT(*) INTO @w4 FROM `agents_queues` t WHERE t.queue_id =  v_queue_id AND t.login = 1 ;
+
+     
+     SELECT IFNULL(@w4-(@w1 + @w2 + @w3) , 0 );
+     
+     
+	END$$
+
+DELIMITER ;

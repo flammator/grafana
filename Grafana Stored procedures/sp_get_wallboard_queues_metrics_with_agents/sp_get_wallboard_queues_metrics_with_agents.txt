@@ -1,0 +1,35 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP PROCEDURE IF EXISTS `sp_get_wallboard_queues_metrics_with_agents`$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_get_wallboard_queues_metrics_with_agents`()
+BEGIN
+    SELECT 
+        q.ext_number AS queue,
+        f_total_calls(q.ext_number)           AS total_calls,
+        f_login_agents(q.ext_number)         AS login_agents,
+        f_talking_agents(q.ext_number)       AS talking_agents,
+        f_available_agents(q.ext_number)     AS available_agents,
+        
+        -- ✅ Inline paused agent count (no separate function needed)
+        (SELECT COUNT(*) 
+           FROM asterisk_members am 
+          WHERE am.Queue = q.ext_number 
+            AND am.Paused = 1)               AS paused_agents,
+        
+        f_calls_in_queue(q.ext_number)       AS calls_in_queue,
+        f_calls_handled(q.ext_number)        AS calls_handled,
+        f_abandoned_calls(q.ext_number)      AS abandoned_calls,
+        f_average_talk_time(q.ext_number)    AS average_talk_time,    
+        f_average_wait_time(q.ext_number)    AS average_wait_time,
+        f_missed_call_dashbord(q.ext_number) AS missed_calls,
+        f_longest_wait_time(q.ext_number)    AS longest_wait_time,
+        f_answerd_rate(q.ext_number)         AS answered_rate
+    FROM queues q
+    WHERE q.wallboard = 1
+    ORDER BY q.ext_number;
+END$$
+
+DELIMITER ;

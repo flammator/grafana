@@ -1,0 +1,56 @@
+DELIMITER $$
+
+USE `tgui`$$
+
+DROP PROCEDURE IF EXISTS `p_full_queue_stats_with_answered_rate_multi`$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `p_full_queue_stats_with_answered_rate_multi`(
+    IN i_queues TEXT
+)
+BEGIN
+    DECLARE v_queue_ext VARCHAR(50);
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE cur CURSOR FOR 
+        SELECT TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(i_queues, ',', numbers.n), ',', -1)) AS queue_ext
+        FROM (
+            SELECT 1 n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 
+            UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 
+        ) numbers
+        WHERE n <= 1 + (LENGTH(i_queues) - LENGTH(REPLACE(i_queues, ',', '')));
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    CREATE TEMPORARY TABLE IF NOT EXISTS queue_stats (
+        queue_ext VARCHAR(50),
+        total_calls INT,
+        longest_wait TIME,
+        logged_in_agents INT,
+        available_agent INT,
+        talking_agents INT,
+        calls_in_queue INT,
+        calls_handled INT,
+        average_talk_time TIME,
+        abandoned_calls INT,
+        average_wait_time TIME,
+        missed_calls INT,
+        answered_rate FLOAT
+    );
+
+    OPEN cur;
+    read_loop: LOOP
+        FETCH cur INTO v_queue_ext;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- اینجا همون لاجیک پروسیجر اصلی رو برای v_queue_ext اجرا می‌کنیم
+        -- و نتیجه رو داخل جدول موقت queue_stats می‌ریزیم
+        CALL p_full_queue_stats_with_answered_rate(v_queue_ext);
+
+    END LOOP;
+    CLOSE cur;
+
+    SELECT * FROM queue_stats;
+    DROP TEMPORARY TABLE  queue_stats;
+END$$
+
+DELIMITER ;
